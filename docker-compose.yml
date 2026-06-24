@@ -1,0 +1,72 @@
+services:
+
+  # ─────────────────────────────────────────
+  # HDFS – NameNode (maître)
+  # ─────────────────────────────────────────
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    restart: always
+    ports:
+      - "9870:9870"   # Interface web HDFS  → http://localhost:9870
+      - "9000:9000"   # Port HDFS
+    environment:
+      - CLUSTER_NAME=hadoop-cluster
+    env_file:
+      - ./hadoop.env
+    volumes:
+      - namenode_data:/hadoop/dfs/name
+    networks:
+      - bigdata-net
+
+  # ─────────────────────────────────────────
+  # HDFS – DataNode (stockage réel)
+  # ─────────────────────────────────────────
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    restart: always
+    ports:
+      - "9864:9864"
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870"
+    env_file:
+      - ./hadoop.env
+    volumes:
+      - datanode_data:/hadoop/dfs/data
+    depends_on:
+      - namenode
+    networks:
+      - bigdata-net
+
+  # ─────────────────────────────────────────
+  # Spark Master + Worker + Jupyter (tout-en-un)
+  # ─────────────────────────────────────────
+  spark:
+    image: jupyter/pyspark-notebook:latest
+    container_name: spark-jupyter
+    ports:
+      - "8888:8888"   # Jupyter → http://localhost:8888
+      - "4040:4040"   # Spark UI → http://localhost:4040
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - PYTHONPATH=/usr/local/spark/python:/usr/local/spark/python/lib/py4j-0.10.9.7-src.zip
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+    networks:
+      - bigdata-net
+
+# ─────────────────────────────────────────
+# Volumes persistants
+# ─────────────────────────────────────────
+volumes:
+  namenode_data:
+  datanode_data:
+
+# ─────────────────────────────────────────
+# Réseau commun
+# ─────────────────────────────────────────
+networks:
+  bigdata-net:
+    driver: bridge
