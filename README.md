@@ -12,6 +12,7 @@ Dataset : [Online Retail – UCI](https://archive.ics.uci.edu/dataset/352/online
 - Oussema Jebaari
 - Aziz Ben Guirat
 - Mohamed Hamdaoui
+- Ibtihal El Bannouri
 
 ## Architecture
 | Service   | Image                          | Rôle                         | URL |
