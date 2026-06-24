@@ -1,0 +1,261 @@
+\documentclass[11pt,a4paper]{article}
+
+% ─────────────────────────── Packages ───────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+% ─────────────────────────── Style ───────────────────────────
+\definecolor{primary}{HTML}{1F3A5F}
+\definecolor{accent}{HTML}{2A7ADE}
+\definecolor{light}{HTML}{F2F5FA}
+
+\captionsetup{font=small,labelfont={bf,color=primary}}
+% Titres de section colorés (sans package additionnel)
+\makeatletter
+\renewcommand{\section}{\@startsection{section}{1}{\z@}{-3.5ex plus -1ex minus -.2ex}{2.3ex plus .2ex}{\Large\bfseries\color{primary}}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}{-3.25ex plus -1ex minus -.2ex}{1.5ex plus .2ex}{\large\bfseries\color{accent}}}
+\makeatother
+
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small\color{primary}Analyse de Données de Vente}
+\lhead{\small\color{primary}Big Data}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Commande pour insérer une capture centrée
+\newcommand{\capture}[3][0.9]{%
+  \begin{figure}[H]\centering
+  \includegraphics[width=#1\textwidth]{image/#2}
+  \caption{#3}\end{figure}}
+
+% ─────────────────────────── Document ───────────────────────────
+\begin{document}
+
+% ===== Page de garde =====
+\begin{titlepage}
+\centering
+\vspace*{1.5cm}
+{\color{accent}\rule{\textwidth}{2pt}}\\[0.6cm]
+{\Huge\bfseries\color{primary} Projet Big Data\par}
+\vspace{0.4cm}
+{\LARGE Analyse de Données de Vente\par}
+\vspace{0.2cm}
+{\large\itshape Apache Spark (PySpark) \& Hadoop HDFS sous Docker\par}
+{\color{accent}\rule{\textwidth}{2pt}}\\[1.2cm]
+
+{\large\textbf{Dataset :} Online Retail (UCI) — $\approx$ 541\,909 transactions\par}
+\vspace{2.2cm}
+
+{\large\bfseries\color{primary} Membres du groupe\par}
+\vspace{0.4cm}
+\begin{tabular}{l}
+\large Alaa Belhadj\\[4pt]
+\large Zackaria Ajli\\[4pt]
+\large Oussema Jebaari\\[4pt]
+\large Aziz Ben Guirat\\[4pt]
+\large Mohamed Hamdaoui\\
+\end{tabular}
+
+\vfill
+{\large Année universitaire 2025--2026\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ===== 1. Introduction =====
+\section{Introduction et contexte}
+Une entreprise de commerce en ligne souhaite exploiter l'historique de ses ventes
+afin de mieux comprendre son activité, d'analyser le comportement de ses clients
+et d'identifier des opportunités d'amélioration de ses performances commerciales.
+
+L'objectif de ce projet est de développer une \textbf{solution d'analyse de données}
+reposant sur \textbf{Apache Spark} pour traiter efficacement plusieurs centaines de
+milliers de transactions, puis de stocker le jeu de données sur un cluster
+\textbf{Hadoop HDFS}. L'ensemble est conteneurisé avec \textbf{Docker Compose}.
+
+\subsection{Jeu de données}
+Le projet s'appuie sur le \textit{Online Retail Dataset} de l'UCI Machine Learning
+Repository\footnote{\url{https://archive.ics.uci.edu/dataset/352/online+retail}},
+qui contient environ \textbf{541\,909} transactions d'un site de vente en ligne
+britannique entre décembre 2010 et décembre 2011. Chaque ligne décrit un article
+acheté : numéro de facture, code et description du produit, quantité, date, prix
+unitaire, identifiant client et pays.
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Colonne} & \textbf{Type} & \textbf{Description}\\
+\midrule
+InvoiceNo   & string  & Numéro de facture\\
+StockCode   & string  & Code produit\\
+Description & string  & Libellé du produit\\
+Quantity    & int     & Quantité achetée\\
+InvoiceDate & date    & Date et heure de la transaction\\
+UnitPrice   & double  & Prix unitaire (£)\\
+CustomerID  & int     & Identifiant client\\
+Country     & string  & Pays du client\\
+\bottomrule
+\end{tabular}
+\caption{Schéma du jeu de données Online Retail.}
+\end{table}
+
+% ===== 2. Architecture =====
+\section{Architecture de la solution}
+La solution est composée de trois services orchestrés par \texttt{docker-compose.yml}
+sur un réseau commun \texttt{bigdata-net} :
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Service} & \textbf{Image Docker} & \textbf{Rôle} & \textbf{Interface}\\
+\midrule
+namenode & bde2020/hadoop-namenode & Maître HDFS (métadonnées) & localhost:9870\\
+datanode & bde2020/hadoop-datanode & Stockage des blocs HDFS & localhost:9864\\
+spark    & jupyter/pyspark-notebook & Spark + Jupyter (PySpark) & localhost:8888\\
+\bottomrule
+\end{tabular}
+\caption{Les trois conteneurs de la stack Big Data.}
+\end{table}
+
+Le dossier local \texttt{data/} (contenant le CSV) est monté dans le conteneur Spark,
+et le conteneur Spark écrit ses résultats sur le cluster HDFS via l'adresse
+\texttt{hdfs://namenode:9000}.
+
+% ===== 3. Mise en route =====
+\section{Mise en route : de \texttt{docker compose up} à l'exécution}
+
+\subsection{Préparation des données}
+Le dataset est fourni au format Excel (\texttt{.xlsx}). Un script Python le convertit
+en CSV, format directement exploitable par Spark.
+\capture[0.75]{01_convert_csv.png}{Conversion du fichier \texttt{.xlsx} en \texttt{.csv}.}
+
+\subsection{Démarrage de la stack}
+La commande \texttt{docker compose up -d} construit le réseau, les volumes persistants
+et démarre les trois conteneurs.
+\capture[0.75]{02_compose_up.png}{Démarrage des conteneurs avec \texttt{docker compose up}.}
+
+On vérifie ensuite que les trois services sont sains (\textit{healthy}).
+\capture[1.0]{03_compose_ps.png}{État des conteneurs : \texttt{docker compose ps}.}
+
+\subsection{Accès à Jupyter}
+On récupère l'URL d'accès à Jupyter (avec son token de sécurité).
+\capture[1.0]{04_jupyter_url.png}{Récupération de l'URL Jupyter.}
+
+% ===== 4. Partie 1 : Spark =====
+\section{Partie 1 — Application d'analyse avec Spark}
+
+\subsection{Initialisation de la session Spark}
+On crée une \texttt{SparkSession}, point d'entrée de toute application PySpark.
+\capture[0.85]{06_code_init.png}{Code — création de la session Spark.}
+\capture[0.6]{07_out_init.png}{Sortie — Spark 3.5.0 démarré.}
+
+\subsection{Chargement des données}
+Le fichier CSV est chargé dans un \texttt{DataFrame} Spark avec inférence du schéma.
+\capture[0.75]{08_code_load.png}{Code — chargement du CSV.}
+\capture[0.65]{09_out_load.png}{Sortie — 541\,909 lignes chargées et schéma inféré.}
+
+\subsection{Nettoyage et transformation}
+Le jeu de données brut contient des valeurs manquantes (notamment 135\,080 lignes
+sans \texttt{CustomerID}) et des lignes correspondant à des retours (quantités
+négatives). On applique donc plusieurs traitements :
+\begin{itemize}[noitemsep]
+  \item suppression des lignes sans identifiant client ;
+  \item suppression des quantités et prix négatifs ou nuls ;
+  \item suppression des doublons ;
+  \item ajout d'une colonne \texttt{TotalPrice} $=$ \texttt{Quantity} $\times$ \texttt{UnitPrice} ;
+  \item conversion de la date et extraction de l'année et du mois.
+\end{itemize}
+\capture[0.9]{11_out_nulls.png}{Sortie — comptage des valeurs nulles par colonne.}
+\capture[0.95]{10_code_clean.png}{Code — nettoyage et transformation.}
+\capture[1.0]{12_out_clean.png}{Sortie — 392\,692 lignes après nettoyage.}
+
+\subsection{Analyses des ventes et des produits}
+
+\paragraph{Chiffre d'affaires total.}
+\capture[0.55]{13_out_ca_total.png}{Chiffre d'affaires total : 8\,887\,208.89 £.}
+
+\paragraph{Produits les plus vendus.}
+\capture[0.8]{14_out_top_produits.png}{Top 10 des produits par quantité vendue.}
+\capture[0.8]{15_out_top_ca.png}{Top 10 des produits par chiffre d'affaires.}
+
+\paragraph{Répartition géographique.}
+Le marché est très largement dominé par le Royaume-Uni (\textgreater 80\,\% du CA).
+\capture[0.6]{16_out_pays.png}{CA par pays (Top 10).}
+\capture[0.85]{23_chart_pays.png}{Visualisation du CA par pays (hors Royaume-Uni).}
+
+\paragraph{Évolution temporelle.}
+On observe une forte croissance du CA à l'approche de la période de Noël 2011.
+\capture[0.6]{17_out_mensuel.png}{Évolution mensuelle du CA.}
+\capture[0.85]{22_chart_mensuel.png}{Visualisation de l'évolution mensuelle du CA.}
+
+\paragraph{Meilleurs clients.}
+\capture[0.55]{18_out_clients.png}{Top 10 des clients par chiffre d'affaires.}
+
+\subsection{Indicateurs clés (KPIs)}
+\capture[0.7]{19_out_kpis.png}{Indicateurs synthétiques de l'activité.}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Indicateur} & \textbf{Valeur}\\
+\midrule
+Chiffre d'affaires total      & 8\,887\,208.89 £\\
+Commandes uniques             & 18\,532\\
+Clients uniques               & 4\,338\\
+Produits uniques              & 3\,665\\
+Panier moyen par commande     & 479.56 £\\
+Articles moyens par commande  & 278.0\\
+\bottomrule
+\end{tabular}
+\caption{Synthèse des indicateurs calculés.}
+\end{table}
+
+% ===== 5. Partie 2 : HDFS =====
+\section{Partie 2 — Stockage sur Hadoop HDFS}
+Conformément à l'énoncé, le jeu de données est stocké sur le cluster HDFS. Deux
+versions sont écrites depuis Spark :
+\begin{itemize}[noitemsep]
+  \item le \textbf{dataset brut} dans \texttt{/data/raw/online\_retail} (CSV) ;
+  \item les \textbf{données nettoyées} dans \texttt{/data/online\_retail\_clean}
+        (format colonne Parquet, compressé Snappy, 8 partitions).
+\end{itemize}
+\capture[0.8]{20_code_hdfs.png}{Code — écriture et relecture sur HDFS.}
+\capture[1.0]{21_out_hdfs.png}{Sortie — confirmation des écritures HDFS.}
+
+On vérifie enfin l'arborescence stockée sur le cluster :
+\capture[1.0]{05_hdfs_ls.png}{Contenu du cluster HDFS (\texttt{hdfs dfs -ls -R /data}).}
+
+La réplication est fixée à 1 (un seul DataNode), et l'interface web du NameNode
+(\url{http://localhost:9870}) permet de superviser le cluster et de naviguer dans
+le système de fichiers.
+\capture[1.0]{24_hdfs_webui.jpeg}{Interface web du NameNode Hadoop (\texttt{localhost:9870}) :
+vue d'ensemble du cluster HDFS (version 3.2.1, \textit{Safemode off}, capacité et
+utilisation du système de fichiers).}
+
+% ===== 6. Conclusion =====
+\section{Conclusion}
+Ce projet a permis de mettre en place une chaîne complète de traitement Big Data :
+ingestion d'un dataset de plus de 540\,000 transactions, nettoyage et
+transformation distribués avec \textbf{PySpark}, calcul d'analyses et d'indicateurs
+métier pertinents, puis stockage durable sur un cluster \textbf{Hadoop HDFS}, le tout
+reproductible grâce à \textbf{Docker Compose}.
+
+Les analyses montrent une activité fortement concentrée sur le Royaume-Uni, une
+saisonnalité marquée (pic à l'approche de Noël) et une dépendance à un petit nombre
+de clients à forte valeur. Comme \textbf{extension}, la solution pourrait être étendue
+au traitement en temps réel (\textit{streaming}) à l'aide de Spark Structured
+Streaming alimenté par Apache Kafka.
+
+\end{document}

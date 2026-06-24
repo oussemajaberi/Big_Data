@@ -1,0 +1,15 @@
+# Données volumineuses générées
+data/online_retail.csv
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# LaTeX build
+rapport/*.aux
+rapport/*.log
+rapport/*.out
+rapport/*.toc
+rapport/*.synctex.gz
+
+# OS
+.DS_Store
